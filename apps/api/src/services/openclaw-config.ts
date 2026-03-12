@@ -208,6 +208,7 @@ export function mergeOpenClawConfig(
     merged.gateway = {};
   }
   const gw = merged.gateway as Record<string, unknown>;
+  gw.mode = generated.gateway.mode;
   gw.auth = generated.gateway.auth;
   gw.port = generated.gateway.port;
   gw.bind = generated.gateway.bind;
