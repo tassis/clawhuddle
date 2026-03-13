@@ -68,10 +68,6 @@ export function scanRepoForSkills(gitUrl: string): { name: string; git_path: str
 export async function installSkillsForUser(userId: string, skills: Skill[]): Promise<void> {
   const skillsDir = path.join(getDataDir(), 'gateways', userId, 'skills');
 
-  // Clear existing installed skills
-  if (fs.existsSync(skillsDir)) {
-    fs.rmSync(skillsDir, { recursive: true });
-  }
   fs.mkdirSync(skillsDir, { recursive: true });
 
   for (const skill of skills) {
@@ -95,6 +91,10 @@ export async function installSkillsForUser(userId: string, skills: Skill[]): Pro
     const skillName = path.basename(skill.git_path);
     const destDir = path.join(skillsDir, skillName);
 
+    // Remove old version of this specific skill before copying updated version
+    if (fs.existsSync(destDir)) {
+      fs.rmSync(destDir, { recursive: true });
+    }
     fs.cpSync(srcDir, destDir, { recursive: true });
   }
 }
