@@ -35,6 +35,7 @@ export interface OpenClawConfig {
     nativeSkills: string;
     config: boolean;
   };
+  env?: Record<string, string>;
   gateway: {
     mode: string;
     port: number;
@@ -76,6 +77,8 @@ export function generateOpenClawConfig(options: {
   allowedOrigins?: string[];
   /** Use Host-header fallback for origin check (local dev only) */
   useHostHeaderFallback?: boolean;
+  /** Override OpenAI base URL (e.g. for claw-proxy: "http://claw-proxy:3456/v1") */
+  openaiBaseUrl?: string;
 }): OpenClawConfig {
   const { port, token } = options;
   const channels = options.enabledChannels ?? CHANNEL_PLUGINS;
@@ -138,6 +141,13 @@ export function generateOpenClawConfig(options: {
       entries: pluginEntries,
     },
   };
+
+  // Override OpenAI base URL (e.g. point to claw-proxy)
+  if (options.openaiBaseUrl) {
+    config.env = {
+      OPENAI_BASE_URL: options.openaiBaseUrl,
+    };
+  }
 
   // Set default model based on active providers so OpenClaw doesn't
   // fall back to Anthropic when only another provider's key exists
@@ -214,6 +224,13 @@ export function mergeOpenClawConfig(
   gw.bind = generated.gateway.bind;
   gw.controlUi = generated.gateway.controlUi;
   gw.trustedProxies = generated.gateway.trustedProxies;
+
+  // Platform-managed: env (OPENAI_BASE_URL override for claw-proxy)
+  if (generated.env) {
+    merged.env = generated.env;
+  } else {
+    delete merged.env;
+  }
 
   // Platform-managed: agents.defaults.model + agents.defaults.models
   if (generated.agents) {

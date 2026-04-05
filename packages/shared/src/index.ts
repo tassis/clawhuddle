@@ -156,7 +156,17 @@ export const PROVIDERS: ProviderConfig[] = [
     ],
     supportsSetupToken: true, setupTokenInstructions: 'Run `claude setup-token` in your terminal and paste the result here.',
   },
-  { id: 'openai', label: 'OpenAI', envVar: 'OPENAI_API_KEY', placeholder: 'sk-...', defaultModel: 'openai/gpt-4.1' },
+  {
+    id: 'openai', label: 'OpenAI', envVar: 'OPENAI_API_KEY', placeholder: 'sk-...',
+    defaultModel: 'openai/gpt-4.1',
+    models: [
+      { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
+      { id: 'openai/gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+      { id: 'openai/claude-sonnet-4', label: 'Claude Sonnet 4 (via Proxy)' },
+      { id: 'openai/claude-opus-4', label: 'Claude Opus 4 (via Proxy)' },
+      { id: 'openai/claude-haiku-4', label: 'Claude Haiku 4 (via Proxy)' },
+    ],
+  },
   { id: 'openai-codex', label: 'OpenAI Codex', envVar: '', placeholder: '', defaultModel: 'openai-codex/gpt-5.3-codex', supportsOAuth: true, oauthInstructions: 'Run `codex` and sign in with your ChatGPT account, then run `cat ~/.codex/auth.json` and paste the JSON here.' },
   { id: 'openrouter', label: 'OpenRouter', envVar: 'OPENROUTER_API_KEY', placeholder: 'sk-or-...', defaultModel: 'openrouter/anthropic/claude-sonnet-4.5' },
   { id: 'google', label: 'Google Gemini', envVar: 'GEMINI_API_KEY', placeholder: 'AIza...', defaultModel: 'google/gemini-2.5-pro' },

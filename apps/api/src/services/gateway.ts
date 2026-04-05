@@ -377,6 +377,7 @@ export async function provisionGateway(orgId: string, memberId: string) {
     activeProviderIds: providerIds,
     modelOverrides,
     channelTokens,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
     ...getControlUiOrigins(subdomain),
   });
   fs.writeFileSync(
@@ -560,6 +561,7 @@ export async function redeployGateway(orgId: string, memberId: string) {
     activeProviderIds: providerIds,
     modelOverrides,
     channelTokens,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
     ...getControlUiOrigins(member.gateway_subdomain),
   };
 
