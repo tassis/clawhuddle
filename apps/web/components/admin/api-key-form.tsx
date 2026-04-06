@@ -19,6 +19,7 @@ export interface ApiKeyDisplay {
 interface Props {
   initialKeys: ApiKeyDisplay[];
   fetchFn: FetchFn;
+  proxyEnabled?: boolean;
 }
 
 const CRED_TYPE_LABEL: Record<CredentialType, string> = {
@@ -36,7 +37,7 @@ function getAvailableTabs(provider: (typeof PROVIDERS)[number]): CredentialType[
   return tabs;
 }
 
-export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
+export function ApiKeyForm({ initialKeys, fetchFn, proxyEnabled = false }: Props) {
   const { toast } = useToast();
   const [keys, setKeys] = useState(initialKeys);
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -152,7 +153,9 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
   return (
     <div className="space-y-6 max-w-lg">
       {PROVIDERS.map((providerConfig) => {
-        const { id, label, placeholder, defaultModel, models, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
+        const { id, label, placeholder: rawPlaceholder, defaultModel, models: allModels, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
+        const models = allModels?.filter((m) => !m.proxyOnly || proxyEnabled);
+        const placeholder = (proxyEnabled && id === 'openai') ? 'Bearer token from claw-proxy config' : rawPlaceholder;
         const tabs = getAvailableTabs(providerConfig);
         const activeTab = credTabs[id] ?? tabs[0];
         const firstExisting = keysForProvider(id)[0];

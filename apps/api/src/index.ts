@@ -63,6 +63,10 @@ app.get('/api/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
+app.get('/api/system/proxy-status', async () => {
+  return { proxyEnabled: !!process.env.OPENAI_BASE_URL };
+});
+
 const port = Number(process.env.PORT) || 4000;
 const host = process.env.HOST || '0.0.0.0';
 
