@@ -1,0 +1,3 @@
+[submodule "vendor/claw-proxy"]
+	path = vendor/claw-proxy
+	url = https://github.com/allen-hsu/claw-proxy.git

@@ -83,6 +83,21 @@ services:
       - clawhuddle-net
     restart: unless-stopped
 
+  claw-proxy:
+    build:
+      context: ./vendor/claw-proxy
+    ports:
+      - "3456:3456"
+    environment:
+      - HOST=0.0.0.0
+    volumes:
+      - ./data/claw-proxy:/root/.claw-proxy:ro
+    networks:
+      - clawhuddle-net
+    restart: unless-stopped
+    profiles:
+      - proxy
+
   gateway-base:
     build:
       context: ./docker/gateway
