@@ -22,26 +22,25 @@ claw-proxy routes OpenAI-format requests through `claude -p` CLI using Claude Ma
 
 ### How it works
 
-1. Admin sets `CLAW_PROXY_URL=http://claw-proxy:3456/v1` in `.env`
-2. Admin adds bearer token via UI under "Claw Proxy (Claude Max)" provider
-3. On gateway provision/redeploy, `generateOpenClawConfig()` writes a `models.providers.claw` section into `openclaw.json` with:
-   - `baseUrl` + `apiKey` (bearer token from DB)
+1. Admin adds bearer token via UI under "Claw Proxy (Claude Max)" provider — this alone enables proxy
+2. On gateway provision/redeploy, `generateOpenClawConfig()` writes a `models.providers.claw` section into `openclaw.json` with:
+   - `baseUrl` (default `http://claw-proxy:3456/v1`, override via `CLAW_PROXY_URL` env var)
+   - `apiKey` (bearer token from DB)
    - `api: "openai-completions"`
    - Full model definitions (id, name, reasoning, contextWindow, cost=0)
-4. Model IDs use `claw/` prefix (e.g. `claw/claude-sonnet-4-6`)
-5. Bearer token goes into `openclaw.json` directly — NOT `auth-profiles.json`
+3. Model IDs use `claw/` prefix (e.g. `claw/claude-sonnet-4-6`)
+4. Bearer token goes into `openclaw.json` directly — NOT `auth-profiles.json`
 
 ### Key env vars
 
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `CLAW_PROXY_URL` | API server `.env` | Base URL for claw-proxy (default: `http://claw-proxy:3456/v1`) |
+| `CLAW_PROXY_URL` | API server `.env` | Optional override for claw-proxy base URL (default: `http://claw-proxy:3456/v1`) |
 
 ### Frontend behavior
 
-- `GET /api/system/proxy-status` returns `{ proxyEnabled }` based on `CLAW_PROXY_URL` env var
-- When proxy is disabled, the entire "Claw Proxy" provider card is hidden (all models are `proxyOnly: true`)
-- When proxy is enabled, admin sees the card with bearer token input and model selector
+- "Claw Proxy (Claude Max)" always visible as a provider card in Admin → API Keys
+- Adding a bearer token is the only step needed to enable proxy — no env var required
 
 ### Starting claw-proxy
 

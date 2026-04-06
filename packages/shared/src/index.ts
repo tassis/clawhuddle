@@ -122,8 +122,6 @@ export type CredentialType = 'api_key' | 'token' | 'oauth';
 export interface ModelOption {
   id: string;
   label: string;
-  /** Only show this model when the OpenAI proxy (claw-proxy) is enabled */
-  proxyOnly?: boolean;
 }
 
 export interface ProviderConfig {
@@ -170,11 +168,11 @@ export const PROVIDERS: ProviderConfig[] = [
     id: 'claw-proxy', label: 'Claw Proxy (Claude Max)', envVar: '', placeholder: 'Bearer token from claw-proxy config',
     defaultModel: 'claw/claude-sonnet-4-6',
     models: [
-      { id: 'claw/claude-sonnet-4-6', label: 'Claude Sonnet 4.6', proxyOnly: true },
-      { id: 'claw/claude-opus-4-6', label: 'Claude Opus 4.6', proxyOnly: true },
-      { id: 'claw/claude-sonnet-4', label: 'Claude Sonnet 4', proxyOnly: true },
-      { id: 'claw/claude-opus-4', label: 'Claude Opus 4', proxyOnly: true },
-      { id: 'claw/claude-haiku-4', label: 'Claude Haiku 4', proxyOnly: true },
+      { id: 'claw/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+      { id: 'claw/claude-opus-4-6', label: 'Claude Opus 4.6' },
+      { id: 'claw/claude-sonnet-4', label: 'Claude Sonnet 4' },
+      { id: 'claw/claude-opus-4', label: 'Claude Opus 4' },
+      { id: 'claw/claude-haiku-4', label: 'Claude Haiku 4' },
     ],
   },
   { id: 'openai-codex', label: 'OpenAI Codex', envVar: '', placeholder: '', defaultModel: 'openai-codex/gpt-5.3-codex', supportsOAuth: true, oauthInstructions: 'Run `codex` and sign in with your ChatGPT account, then run `cat ~/.codex/auth.json` and paste the JSON here.' },

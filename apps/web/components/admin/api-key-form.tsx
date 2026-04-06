@@ -19,7 +19,6 @@ export interface ApiKeyDisplay {
 interface Props {
   initialKeys: ApiKeyDisplay[];
   fetchFn: FetchFn;
-  proxyEnabled?: boolean;
 }
 
 const CRED_TYPE_LABEL: Record<CredentialType, string> = {
@@ -37,7 +36,7 @@ function getAvailableTabs(provider: (typeof PROVIDERS)[number]): CredentialType[
   return tabs;
 }
 
-export function ApiKeyForm({ initialKeys, fetchFn, proxyEnabled = false }: Props) {
+export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
   const { toast } = useToast();
   const [keys, setKeys] = useState(initialKeys);
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -153,10 +152,7 @@ export function ApiKeyForm({ initialKeys, fetchFn, proxyEnabled = false }: Props
   return (
     <div className="space-y-6 max-w-lg">
       {PROVIDERS.map((providerConfig) => {
-        const { id, label, placeholder, defaultModel, models: allModels, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
-        const models = allModels?.filter((m) => !m.proxyOnly || proxyEnabled);
-        // Hide provider entirely if all its models are proxyOnly and proxy is disabled
-        if (models && models.length === 0) return null;
+        const { id, label, placeholder, defaultModel, models, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
         const tabs = getAvailableTabs(providerConfig);
         const activeTab = credTabs[id] ?? tabs[0];
         const firstExisting = keysForProvider(id)[0];
