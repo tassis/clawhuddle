@@ -171,15 +171,24 @@ function createTraefikLabels(
  * from the file (hot-reloaded) instead of env vars.
  * Returns the list of provider IDs that have credentials configured.
  */
-function writeAuthProfiles(orgId: string, userId: string): { providerIds: string[]; modelOverrides: Record<string, string> } {
+function writeAuthProfiles(orgId: string, userId: string): { providerIds: string[]; modelOverrides: Record<string, string>; clawProxyKey: string | null } {
   const allKeys = getOrgAllApiKeys(orgId);
   const profiles: Record<string, Record<string, unknown>> = {};
   const providerIds: string[] = [];
   const modelOverrides: Record<string, string> = {};
   const order: Record<string, string[]> = {};
   const providerCounters: Record<string, number> = {};
+  let clawProxyKey: string | null = null;
 
   for (const { provider, key, credential_type, default_model } of allKeys) {
+    // claw-proxy keys go directly into openclaw.json as a custom provider, not auth-profiles
+    if (provider === 'claw-proxy') {
+      clawProxyKey = key;
+      if (!providerIds.includes(provider)) providerIds.push(provider);
+      if (default_model && !modelOverrides[provider]) modelOverrides[provider] = default_model;
+      continue;
+    }
+
     const providerConfig = PROVIDERS.find((p) => p.id === provider);
     if (!providerConfig) continue;
     if (!providerIds.includes(provider)) providerIds.push(provider);
@@ -253,7 +262,7 @@ function writeAuthProfiles(orgId: string, userId: string): { providerIds: string
     }, null, 2),
   );
 
-  return { providerIds, modelOverrides };
+  return { providerIds, modelOverrides, clawProxyKey };
 }
 
 /**
@@ -360,7 +369,7 @@ export async function provisionGateway(orgId: string, memberId: string) {
   fs.mkdirSync(gatewayDir, { recursive: true });
 
   // Write auth-profiles.json (credentials read from file, not env vars)
-  const { providerIds, modelOverrides } = writeAuthProfiles(orgId, member.user_id);
+  const { providerIds, modelOverrides, clawProxyKey } = writeAuthProfiles(orgId, member.user_id);
   if (providerIds.length === 0)
     throw new Error("No API keys configured — add at least one provider key");
 
@@ -371,13 +380,14 @@ export async function provisionGateway(orgId: string, memberId: string) {
   const channelTokens = getMemberChannelTokens(memberId);
 
   // Generate config
+  const clawProxyBaseUrl = process.env.CLAW_PROXY_URL || 'http://claw-proxy:3456/v1';
   const config = generateOpenClawConfig({
     port,
     token,
     activeProviderIds: providerIds,
     modelOverrides,
     channelTokens,
-    openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
+    clawProxy: clawProxyKey ? { baseUrl: clawProxyBaseUrl, apiKey: clawProxyKey } : undefined,
     ...getControlUiOrigins(subdomain),
   });
   fs.writeFileSync(
@@ -544,7 +554,7 @@ export async function redeployGateway(orgId: string, memberId: string) {
   }
 
   // Write auth-profiles.json (credentials read from file, not env vars)
-  const { providerIds, modelOverrides } = writeAuthProfiles(orgId, member.user_id);
+  const { providerIds, modelOverrides, clawProxyKey } = writeAuthProfiles(orgId, member.user_id);
   if (providerIds.length === 0)
     throw new Error("No API keys configured — add at least one provider key");
 
@@ -555,13 +565,14 @@ export async function redeployGateway(orgId: string, memberId: string) {
   const skills = getMemberSkills(orgId, member.user_id);
   const gatewayDir = getGatewayDir(orgId, member.user_id);
   const configPath = path.join(gatewayDir, "openclaw.json");
+  const clawProxyBaseUrl = process.env.CLAW_PROXY_URL || 'http://claw-proxy:3456/v1';
   const configOptions = {
     port: GATEWAY_INTERNAL_PORT,
     token: member.gateway_token,
     activeProviderIds: providerIds,
     modelOverrides,
     channelTokens,
-    openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
+    clawProxy: clawProxyKey ? { baseUrl: clawProxyBaseUrl, apiKey: clawProxyKey } : undefined,
     ...getControlUiOrigins(member.gateway_subdomain),
   };
 

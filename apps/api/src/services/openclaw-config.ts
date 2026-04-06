@@ -36,6 +36,22 @@ export interface OpenClawConfig {
     config: boolean;
   };
   env?: Record<string, string>;
+  models?: {
+    providers: Record<string, {
+      baseUrl: string;
+      apiKey: string;
+      api: string;
+      models: {
+        id: string;
+        name: string;
+        reasoning?: boolean;
+        input?: string[];
+        cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+        contextWindow: number;
+        maxTokens: number;
+      }[];
+    }>;
+  };
   gateway: {
     mode: string;
     port: number;
@@ -77,8 +93,8 @@ export function generateOpenClawConfig(options: {
   allowedOrigins?: string[];
   /** Use Host-header fallback for origin check (local dev only) */
   useHostHeaderFallback?: boolean;
-  /** Override OpenAI base URL (e.g. for claw-proxy: "http://claw-proxy:3456/v1") */
-  openaiBaseUrl?: string;
+  /** Claw-proxy configuration (custom provider for Claude Max subscriptions) */
+  clawProxy?: { baseUrl: string; apiKey: string };
 }): OpenClawConfig {
   const { port, token } = options;
   const channels = options.enabledChannels ?? CHANNEL_PLUGINS;
@@ -142,10 +158,23 @@ export function generateOpenClawConfig(options: {
     },
   };
 
-  // Override OpenAI base URL (e.g. point to claw-proxy)
-  if (options.openaiBaseUrl) {
-    config.env = {
-      OPENAI_BASE_URL: options.openaiBaseUrl,
+  // Register claw-proxy as a custom OpenClaw provider
+  if (options.clawProxy) {
+    config.models = {
+      providers: {
+        claw: {
+          baseUrl: options.clawProxy.baseUrl,
+          apiKey: options.clawProxy.apiKey,
+          api: 'openai-completions',
+          models: [
+            { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
+            { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
+            { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
+            { id: 'claude-opus-4', name: 'Claude Opus 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 32000 },
+            { id: 'claude-haiku-4', name: 'Claude Haiku 4', input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
+          ],
+        },
+      },
     };
   }
 
@@ -225,11 +254,17 @@ export function mergeOpenClawConfig(
   gw.controlUi = generated.gateway.controlUi;
   gw.trustedProxies = generated.gateway.trustedProxies;
 
-  // Platform-managed: env (OPENAI_BASE_URL override for claw-proxy)
-  if (generated.env) {
-    merged.env = generated.env;
+  // Platform-managed: models.providers.claw (claw-proxy custom provider)
+  if (generated.models) {
+    merged.models = generated.models;
   } else {
-    delete merged.env;
+    delete merged.models;
+  }
+
+  // Clean up legacy env.OPENAI_BASE_URL if present
+  if (merged.env && typeof merged.env === 'object') {
+    delete (merged.env as Record<string, unknown>).OPENAI_BASE_URL;
+    if (Object.keys(merged.env as object).length === 0) delete merged.env;
   }
 
   // Platform-managed: agents.defaults.model + agents.defaults.models

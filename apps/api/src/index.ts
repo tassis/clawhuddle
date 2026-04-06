@@ -64,7 +64,7 @@ app.get('/api/health', async () => {
 });
 
 app.get('/api/system/proxy-status', async () => {
-  return { proxyEnabled: !!process.env.OPENAI_BASE_URL };
+  return { proxyEnabled: !!process.env.CLAW_PROXY_URL };
 });
 
 const port = Number(process.env.PORT) || 4000;

@@ -153,9 +153,10 @@ export function ApiKeyForm({ initialKeys, fetchFn, proxyEnabled = false }: Props
   return (
     <div className="space-y-6 max-w-lg">
       {PROVIDERS.map((providerConfig) => {
-        const { id, label, placeholder: rawPlaceholder, defaultModel, models: allModels, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
+        const { id, label, placeholder, defaultModel, models: allModels, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
         const models = allModels?.filter((m) => !m.proxyOnly || proxyEnabled);
-        const placeholder = (proxyEnabled && id === 'openai') ? 'Bearer token from claw-proxy config' : rawPlaceholder;
+        // Hide provider entirely if all its models are proxyOnly and proxy is disabled
+        if (models && models.length === 0) return null;
         const tabs = getAvailableTabs(providerConfig);
         const activeTab = credTabs[id] ?? tabs[0];
         const firstExisting = keysForProvider(id)[0];

@@ -164,9 +164,17 @@ export const PROVIDERS: ProviderConfig[] = [
     models: [
       { id: 'openai/gpt-4.1', label: 'GPT-4.1' },
       { id: 'openai/gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-      { id: 'openai/claude-sonnet-4', label: 'Claude Sonnet 4 (via Proxy)', proxyOnly: true },
-      { id: 'openai/claude-opus-4', label: 'Claude Opus 4 (via Proxy)', proxyOnly: true },
-      { id: 'openai/claude-haiku-4', label: 'Claude Haiku 4 (via Proxy)', proxyOnly: true },
+    ],
+  },
+  {
+    id: 'claw-proxy', label: 'Claw Proxy (Claude Max)', envVar: '', placeholder: 'Bearer token from claw-proxy config',
+    defaultModel: 'claw/claude-sonnet-4-6',
+    models: [
+      { id: 'claw/claude-sonnet-4-6', label: 'Claude Sonnet 4.6', proxyOnly: true },
+      { id: 'claw/claude-opus-4-6', label: 'Claude Opus 4.6', proxyOnly: true },
+      { id: 'claw/claude-sonnet-4', label: 'Claude Sonnet 4', proxyOnly: true },
+      { id: 'claw/claude-opus-4', label: 'Claude Opus 4', proxyOnly: true },
+      { id: 'claw/claude-haiku-4', label: 'Claude Haiku 4', proxyOnly: true },
     ],
   },
   { id: 'openai-codex', label: 'OpenAI Codex', envVar: '', placeholder: '', defaultModel: 'openai-codex/gpt-5.3-codex', supportsOAuth: true, oauthInstructions: 'Run `codex` and sign in with your ChatGPT account, then run `cat ~/.codex/auth.json` and paste the JSON here.' },
