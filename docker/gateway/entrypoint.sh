@@ -4,6 +4,9 @@
 # socat bridges external Docker network traffic (0.0.0.0:6101) to loopback.
 socat TCP-LISTEN:6101,fork,bind=0.0.0.0,reuseaddr TCP:127.0.0.1:6100 &
 
+# Auto-fix legacy config keys (e.g. tools.web.search → plugins.entries.*.config.webSearch)
+openclaw doctor --fix 2>/dev/null || true
+
 # Start gateway in background so we can run the auto-approve loop.
 openclaw gateway &
 GATEWAY_PID=$!
