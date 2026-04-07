@@ -267,6 +267,16 @@ export function mergeOpenClawConfig(
     if (Object.keys(merged.env as object).length === 0) delete merged.env;
   }
 
+  // Clean up legacy tools.web.search (moved to plugins.entries.<plugin>.config.webSearch in newer OpenClaw)
+  if (merged.tools && typeof merged.tools === 'object') {
+    const tools = merged.tools as Record<string, unknown>;
+    if (tools.web && typeof tools.web === 'object') {
+      delete (tools.web as Record<string, unknown>).search;
+      if (Object.keys(tools.web as object).length === 0) delete tools.web;
+    }
+    if (Object.keys(tools).length === 0) delete merged.tools;
+  }
+
   // Platform-managed: agents.defaults.model + agents.defaults.models
   if (generated.agents) {
     if (typeof merged.agents !== 'object' || merged.agents === null) {
