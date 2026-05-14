@@ -69,7 +69,7 @@ services:
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`) && !PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api/`) && !PathPrefix(`/api/auth`)"
       - "traefik.http.routers.api.priority=20"
       - "traefik.http.routers.api.entrypoints=web"
       - "traefik.http.services.api.loadbalancer.server.port=4000"
