@@ -16,9 +16,25 @@ export interface ApiKeyDisplay {
   priority?: number;
 }
 
+export interface ProviderSummary {
+  provider: string;
+  has_org_default: boolean;
+  has_personal_override: boolean;
+  source: 'user' | 'org' | 'none';
+}
+
 interface Props {
   initialKeys: ApiKeyDisplay[];
   fetchFn: FetchFn;
+  /**
+   * 'org' (default) manages the organization-wide default keys (admin only).
+   * 'user' manages the current member's personal overrides.
+   */
+  scope?: 'org' | 'user';
+  /** When scope='user', summary from /me/api-keys/summary used to render source badges. */
+  summary?: ProviderSummary[];
+  /** When scope='user', called after a successful mutation so the page can refresh the summary. */
+  onMutate?: () => void | Promise<void>;
 }
 
 const CRED_TYPE_LABEL: Record<CredentialType, string> = {
@@ -26,6 +42,22 @@ const CRED_TYPE_LABEL: Record<CredentialType, string> = {
   token: 'Setup Token',
   oauth: 'OAuth Token',
 };
+
+function SourceBadge({ source }: { source: 'user' | 'org' | 'none' }) {
+  const config = {
+    user: { label: 'Personal override', bg: 'rgba(34,197,94,0.15)', color: '#22c55e' },
+    org: { label: 'Using org default', bg: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' },
+    none: { label: 'Not configured', bg: 'rgba(239,68,68,0.12)', color: '#ef4444' },
+  }[source];
+  return (
+    <span
+      className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+      style={{ background: config.bg, color: config.color }}
+    >
+      {config.label}
+    </span>
+  );
+}
 
 function getAvailableTabs(provider: (typeof PROVIDERS)[number]): CredentialType[] {
   // OAuth-only providers (no envVar) only show oauth tab
@@ -36,8 +68,15 @@ function getAvailableTabs(provider: (typeof PROVIDERS)[number]): CredentialType[
   return tabs;
 }
 
-export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
+export function ApiKeyForm({ initialKeys, fetchFn, scope = 'org', summary, onMutate }: Props) {
   const { toast } = useToast();
+  const isUserScope = scope === 'user';
+  // User-scope hits /me/api-keys; org-scope hits /api-keys. Single source of truth.
+  const basePath = isUserScope ? '/me/api-keys' : '/api-keys';
+  const visibleProviders = isUserScope
+    ? PROVIDERS.filter((p) => p.personalOverridable !== false)
+    : PROVIDERS;
+  const summaryByProvider = new Map((summary ?? []).map((s) => [s.provider, s] as const));
   const [keys, setKeys] = useState(initialKeys);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -52,8 +91,9 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
   });
 
   const refresh = async () => {
-    const res = await fetchFn<{ data: ApiKeyDisplay[] }>('/api-keys');
+    const res = await fetchFn<{ data: ApiKeyDisplay[] }>(basePath);
     setKeys(res.data);
+    if (onMutate) await onMutate();
   };
 
   const saveKey = async (provider: string) => {
@@ -83,7 +123,7 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
     try {
       const providerCfg = PROVIDERS.find((p) => p.id === provider);
       const defaultModel = providerCfg?.models ? (selectedModels[provider] || providerCfg.defaultModel) : undefined;
-      await fetchFn('/api-keys', {
+      await fetchFn(basePath, {
         method: 'POST',
         body: JSON.stringify({ provider, key, credentialType, defaultModel }),
       });
@@ -101,7 +141,7 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
   const deleteKey = async (keyId: string, providerLabel: string) => {
     setSaving(true);
     try {
-      await fetchFn(`/api-keys/${keyId}`, { method: 'DELETE' });
+      await fetchFn(`${basePath}/${keyId}`, { method: 'DELETE' });
       await refresh();
       toast(`${providerLabel} key deleted`, 'success');
     } catch (err: any) {
@@ -113,7 +153,7 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
 
   const reorderKeys = async (provider: string, keyIds: string[]) => {
     try {
-      await fetchFn('/api-keys/reorder', {
+      await fetchFn(`${basePath}/reorder`, {
         method: 'PUT',
         body: JSON.stringify({ provider, keyIds }),
       });
@@ -135,7 +175,7 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
   const updateModel = async (keyId: string, provider: string, model: string) => {
     setSelectedModels((prev) => ({ ...prev, [provider]: model }));
     try {
-      await fetchFn(`/api-keys/${keyId}`, {
+      await fetchFn(`${basePath}/${keyId}`, {
         method: 'PATCH',
         body: JSON.stringify({ defaultModel: model }),
       });
@@ -151,12 +191,14 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
 
   return (
     <div className="space-y-6 max-w-lg">
-      {PROVIDERS.map((providerConfig) => {
+      {visibleProviders.map((providerConfig) => {
         const { id, label, placeholder, defaultModel, models, supportsSetupToken, setupTokenInstructions, supportsOAuth, oauthInstructions } = providerConfig;
         const tabs = getAvailableTabs(providerConfig);
         const activeTab = credTabs[id] ?? tabs[0];
         const firstExisting = keysForProvider(id)[0];
         const currentModel = selectedModels[id] || firstExisting?.default_model || defaultModel;
+        const providerSummary = summaryByProvider.get(id);
+        const source: ProviderSummary['source'] = providerSummary?.source ?? (firstExisting ? 'user' : 'none');
         return (
           <div
             key={id}
@@ -167,12 +209,15 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
             }}
           >
             <div className="flex items-baseline justify-between mb-1">
-              <h3
-                className="text-sm font-semibold"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                {label}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3
+                  className="text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {label}
+                </h3>
+                {isUserScope && <SourceBadge source={source} />}
+              </div>
               {models ? (
                 <select
                   value={currentModel}
@@ -302,6 +347,17 @@ export function ApiKeyForm({ initialKeys, fetchFn }: Props) {
                 </div>
               );
             })()}
+
+            {isUserScope && source === 'org' && (
+              <p className="text-[11px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                Your gateway is currently using the organization default. Add a key below to override it for your account only.
+              </p>
+            )}
+            {isUserScope && source === 'none' && (
+              <p className="text-[11px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                No org default for this provider. Add a personal key to enable it on your gateway.
+              </p>
+            )}
 
             {tabs.length > 1 && (
               <div className="flex gap-1 mb-3">

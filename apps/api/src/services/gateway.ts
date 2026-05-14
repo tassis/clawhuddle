@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "../db/index.js";
-import { getOrgAllApiKeys } from "../routes/org/api-keys.js";
+import { getResolvedApiKeysForMember } from "../routes/org/api-keys.js";
 import { generateOpenClawConfig, mergeOpenClawConfig, type ChannelTokens } from "./openclaw-config.js";
 import { installSkillsForUser } from "./skill-installer.js";
 import type { Skill, OrgMember } from "@clawhuddle/shared";
@@ -172,7 +172,8 @@ function createTraefikLabels(
  * Returns the list of provider IDs that have credentials configured.
  */
 function writeAuthProfiles(orgId: string, userId: string): { providerIds: string[]; modelOverrides: Record<string, string>; clawProxyKey: string | null } {
-  const allKeys = getOrgAllApiKeys(orgId);
+  // Resolved = personal overrides where set, org defaults elsewhere
+  const allKeys = getResolvedApiKeysForMember(orgId, userId);
   const profiles: Record<string, Record<string, unknown>> = {};
   const providerIds: string[] = [];
   const modelOverrides: Record<string, string> = {};
@@ -266,23 +267,35 @@ function writeAuthProfiles(orgId: string, userId: string): { providerIds: string
 }
 
 /**
- * Live-update auth-profiles.json for all running gateways in an org.
- * Called after API key add/delete so credentials propagate without container restart.
+ * Live-update auth-profiles.json for all gateways in an org with on-disk state.
+ * Called after org-default API key add/delete; resolution may pick up the new
+ * org key for any member who doesn't have a personal override for that provider.
  */
 export function syncAuthProfiles(orgId: string): void {
   const db = getDb();
-  const runningMembers = db
+  const members = db
     .prepare(
-      `SELECT om.user_id FROM org_members om
-     WHERE om.org_id = ? AND om.gateway_status IN ('running', 'deploying')`,
+      `SELECT user_id FROM org_members
+       WHERE org_id = ? AND gateway_port IS NOT NULL`,
     )
     .all(orgId) as { user_id: string }[];
 
-  for (const { user_id } of runningMembers) {
+  for (const { user_id } of members) {
     const gatewayDir = getGatewayDir(orgId, user_id);
     if (fs.existsSync(gatewayDir)) {
       writeAuthProfiles(orgId, user_id);
     }
+  }
+}
+
+/**
+ * Live-update auth-profiles.json for a single member's gateway.
+ * Called after a personal API key change — only that user's gateway is affected.
+ */
+export function syncAuthProfilesForUser(orgId: string, userId: string): void {
+  const gatewayDir = getGatewayDir(orgId, userId);
+  if (fs.existsSync(gatewayDir)) {
+    writeAuthProfiles(orgId, userId);
   }
 }
 

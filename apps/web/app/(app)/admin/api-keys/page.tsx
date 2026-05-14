@@ -32,10 +32,13 @@ export default function ApiKeysPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight mb-6" style={{ color: 'var(--text-primary)' }}>
-        API Keys
+      <h1 className="text-xl font-semibold tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
+        Organization API Keys
       </h1>
-      <ApiKeyForm initialKeys={keys} fetchFn={orgFetch!} />
+      <p className="text-sm mb-6" style={{ color: 'var(--text-tertiary)' }}>
+        These keys are the default for every member. Individuals can override them under Settings → My API Keys.
+      </p>
+      <ApiKeyForm initialKeys={keys} fetchFn={orgFetch!} scope="org" />
     </div>
   );
 }

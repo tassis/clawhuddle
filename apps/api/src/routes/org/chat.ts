@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { getOrgApiKey } from './api-keys.js';
+import { getResolvedApiKey } from './api-keys.js';
 import type { ChatMessage } from '@clawhuddle/shared';
 
 export async function orgChatRoutes(app: FastifyInstance) {
@@ -7,7 +7,7 @@ export async function orgChatRoutes(app: FastifyInstance) {
     '/api/orgs/:orgId/chat',
     async (request, reply) => {
       const { messages } = request.body;
-      const apiKey = getOrgApiKey(request.orgId!, 'anthropic');
+      const apiKey = getResolvedApiKey(request.orgId!, request.currentUser!.id, 'anthropic');
 
       if (!apiKey) {
         return reply.status(503).send({

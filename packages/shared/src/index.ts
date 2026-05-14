@@ -141,6 +141,12 @@ export interface ProviderConfig {
   supportsOAuth?: boolean;
   /** Instructions shown in UI for obtaining OAuth tokens */
   oauthInstructions?: string;
+  /**
+   * Whether individual members can set a personal key that overrides the org default.
+   * Defaults to true. Set to false for providers where org-wide control matters
+   * (e.g. claw-proxy: shared bearer / cost tracking).
+   */
+  personalOverridable?: boolean;
 }
 
 export const PROVIDERS: ProviderConfig[] = [
@@ -167,6 +173,7 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'claw-proxy', label: 'Claw Proxy (Claude Max)', envVar: '', placeholder: 'Bearer token from claw-proxy config',
     defaultModel: 'claw/claude-sonnet-4-6',
+    personalOverridable: false,
     models: [
       { id: 'claw/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
       { id: 'claw/claude-opus-4-6', label: 'Claude Opus 4.6' },

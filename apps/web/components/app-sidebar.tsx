@@ -165,6 +165,7 @@ export function AppSidebar() {
               <NavItem href="/home" icon={icons.home} label="Home" active={pathname === '/home'} />
               <NavItem href="/skills" icon={icons.skills} label="My Skills" active={pathname.startsWith('/skills')} />
               <NavItem href="/channels" icon={icons.channels} label="Channels" active={pathname.startsWith('/channels')} />
+              <NavItem href="/api-keys" icon={icons.keys} label="My API Keys" active={pathname.startsWith('/api-keys')} />
             </div>
 
             {/* Admin */}

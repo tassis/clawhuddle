@@ -67,13 +67,16 @@ CREATE TABLE IF NOT EXISTS user_skills (
     PRIMARY KEY (user_id, skill_id)
 );
 
--- API keys (org-scoped, for LLM providers)
+-- API keys (org-scoped, with optional per-user overrides).
+-- user_id IS NULL  -> organization default
+-- user_id NOT NULL -> personal override; resolution prefers user keys over org keys per-provider.
 CREATE TABLE IF NOT EXISTS api_keys (
     id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
     key_value TEXT NOT NULL,
     is_company_default INTEGER NOT NULL DEFAULT 0,
     org_id TEXT REFERENCES organizations(id),
+    user_id TEXT REFERENCES users(id),
     credential_type TEXT NOT NULL DEFAULT 'api_key',
     default_model TEXT,
     priority INTEGER NOT NULL DEFAULT 0,
