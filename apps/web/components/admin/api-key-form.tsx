@@ -35,6 +35,10 @@ interface Props {
   summary?: ProviderSummary[];
   /** When scope='user', called after a successful mutation so the page can refresh the summary. */
   onMutate?: () => void | Promise<void>;
+  /** Override the request base path (e.g. '/members/<id>/api-keys' for admin-managed member keys). */
+  basePathOverride?: string;
+  /** Show providers even when personalOverridable===false (admin path; members can't self-set these). */
+  includeRestricted?: boolean;
 }
 
 const CRED_TYPE_LABEL: Record<CredentialType, string> = {
@@ -68,14 +72,15 @@ function getAvailableTabs(provider: (typeof PROVIDERS)[number]): CredentialType[
   return tabs;
 }
 
-export function ApiKeyForm({ initialKeys, fetchFn, scope = 'org', summary, onMutate }: Props) {
+export function ApiKeyForm({ initialKeys, fetchFn, scope = 'org', summary, onMutate, basePathOverride, includeRestricted }: Props) {
   const { toast } = useToast();
   const isUserScope = scope === 'user';
   // User-scope hits /me/api-keys; org-scope hits /api-keys. Single source of truth.
-  const basePath = isUserScope ? '/me/api-keys' : '/api-keys';
-  const visibleProviders = isUserScope
-    ? PROVIDERS.filter((p) => p.personalOverridable !== false)
-    : PROVIDERS;
+  const basePath = basePathOverride ?? (isUserScope ? '/me/api-keys' : '/api-keys');
+  const visibleProviders =
+    isUserScope && !includeRestricted
+      ? PROVIDERS.filter((p) => p.personalOverridable !== false)
+      : PROVIDERS;
   const summaryByProvider = new Map((summary ?? []).map((s) => [s.provider, s] as const));
   const [keys, setKeys] = useState(initialKeys);
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -350,12 +355,16 @@ export function ApiKeyForm({ initialKeys, fetchFn, scope = 'org', summary, onMut
 
             {isUserScope && source === 'org' && (
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                Your gateway is currently using the organization default. Add a key below to override it for your account only.
+                {basePathOverride
+                  ? 'This member is using the organization default. Adding a key here overrides it for this member only.'
+                  : 'Your gateway is currently using the organization default. Add a key below to override it for your account only.'}
               </p>
             )}
             {isUserScope && source === 'none' && (
               <p className="text-[11px] mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                No org default for this provider. Add a personal key to enable it on your gateway.
+                {basePathOverride
+                  ? 'No org default for this provider. Add a key to enable it on this member’s gateway.'
+                  : 'No org default for this provider. Add a personal key to enable it on your gateway.'}
               </p>
             )}
 

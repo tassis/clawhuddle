@@ -232,6 +232,60 @@ export async function orgApiKeyRoutes(app: FastifyInstance) {
     { enforcePersonalOverridable: true },
   );
 
+  // Admin-managed per-member overrides. Same storage as a member's own
+  // personal keys (user_id = that member) — no separate "locked" concept,
+  // the member can still see/edit them. claw-proxy is NOT restricted here.
+  const resolveTargetMember = async (request: any, reply: any) => {
+    const memberId = request.params.memberId as string;
+    const db = getDb();
+    const row = db
+      .prepare('SELECT user_id FROM org_members WHERE id = ? AND org_id = ?')
+      .get(memberId, request.orgId) as { user_id: string } | undefined;
+    if (!row) {
+      return reply.status(404).send({ error: 'not_found', message: 'Member not found' });
+    }
+    request.targetUserId = row.user_id;
+  };
+
+  registerCrud(
+    app,
+    '/api/orgs/:orgId/members/:memberId/api-keys',
+    (req) => ({ orgId: req.orgId, userId: req.targetUserId }),
+    { preHandler: [requireRole('owner', 'admin'), resolveTargetMember] },
+  );
+
+  // Provider source summary for a specific member (admin view).
+  app.get(
+    '/api/orgs/:orgId/members/:memberId/api-keys/summary',
+    { preHandler: [requireRole('owner', 'admin'), resolveTargetMember] },
+    async (request: any) => {
+      const targetUserId = request.targetUserId as string;
+      const db = getDb();
+      const rows = db
+        .prepare(
+          `SELECT provider,
+                  SUM(CASE WHEN user_id IS NULL THEN 1 ELSE 0 END) AS org_count,
+                  SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS user_count
+           FROM api_keys
+           WHERE org_id = ? AND (user_id IS NULL OR user_id = ?)
+           GROUP BY provider`,
+        )
+        .all(targetUserId, request.orgId, targetUserId) as {
+        provider: string;
+        org_count: number;
+        user_count: number;
+      }[];
+      return {
+        data: rows.map((r) => ({
+          provider: r.provider,
+          has_org_default: r.org_count > 0,
+          has_personal_override: r.user_count > 0,
+          source: r.user_count > 0 ? 'user' : r.org_count > 0 ? 'org' : 'none',
+        })),
+      };
+    },
+  );
+
   // Provider source summary for the current member — used by the
   // personal API keys page so non-admins know which providers fall back
   // to an org default without exposing the org key value.

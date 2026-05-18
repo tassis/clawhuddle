@@ -6,6 +6,7 @@ import { useOrg } from '@/lib/org-context';
 import { createOrgFetch } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { MemberApiKeysModal } from './member-api-keys-modal';
 import type { OrgMember } from '@clawhuddle/shared';
 
 function Badge({ color, children }: { color: 'green' | 'red' | 'yellow' | 'blue' | 'purple' | 'gray'; children: React.ReactNode }) {
@@ -64,6 +65,7 @@ export function MemberTable({ initialMembers }: Props) {
   const [limitHit, setLimitHit] = useState(false);
   const [loadingGateway, setLoadingGateway] = useState<string | null>(null);
   const [redeployingAll, setRedeployingAll] = useState(false);
+  const [apiKeysMember, setApiKeysMember] = useState<OrgMember | null>(null);
 
   const orgFetch = useCallback(
     <T,>(path: string, options?: RequestInit) => {
@@ -452,6 +454,9 @@ export function MemberTable({ initialMembers }: Props) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
+                    <ActionBtn onClick={() => setApiKeysMember(member)}>
+                      API Keys
+                    </ActionBtn>
                     {member.user_id !== userId && (
                       <ActionBtn onClick={() => toggleStatus(member)}>
                         {member.status === 'active' ? 'Suspend' : 'Activate'}
@@ -478,6 +483,14 @@ export function MemberTable({ initialMembers }: Props) {
           </p>
         )}
       </div>
+
+      {apiKeysMember && (
+        <MemberApiKeysModal
+          member={apiKeysMember}
+          fetchFn={orgFetch}
+          onClose={() => setApiKeysMember(null)}
+        />
+      )}
     </div>
   );
 }
