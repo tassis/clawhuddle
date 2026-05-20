@@ -12,7 +12,14 @@ export interface Organization {
   name: string;
   slug: string;
   tier: OrgTier;
+  /** Provider id (e.g. "openai-codex") pinned by admin as agents.defaults.model.primary. Null = alphabetical fallback. */
+  primary_provider: string | null;
   created_at: string;
+}
+
+export interface UpdateOrgRequest {
+  /** Pass null to clear the pin and fall back to alphabetical ordering. */
+  primary_provider?: string | null;
 }
 
 export interface OrgMember {

@@ -3,7 +3,8 @@ import { getDb } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
 import { authPlugin } from '../middleware/auth.js';
 import { deleteOrgGateways } from '../services/gateway.js';
-import type { CreateOrgRequest } from '@clawhuddle/shared';
+import { PROVIDER_IDS, type CreateOrgRequest, type UpdateOrgRequest } from '@clawhuddle/shared';
+import { syncAuthProfiles } from '../services/gateway.js';
 
 export function purgeOrgFromDb(db: any, orgId: string) {
   db.prepare('DELETE FROM invitations WHERE org_id = ?').run(orgId);
@@ -67,6 +68,51 @@ export async function orgRoutes(app: FastifyInstance) {
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(orgId);
     return reply.status(201).send({ data: org });
   });
+
+  // Update organization settings (admin/owner only). Currently just primary_provider.
+  app.patch<{ Params: { orgId: string }; Body: UpdateOrgRequest }>(
+    '/api/orgs/:orgId',
+    async (request, reply) => {
+      const { orgId } = request.params;
+      const db = getDb();
+
+      const membership = db
+        .prepare(
+          "SELECT role FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active'",
+        )
+        .get(orgId, request.currentUser!.id) as { role: string } | undefined;
+      if (!membership || !['owner', 'admin'].includes(membership.role)) {
+        return reply.status(403).send({ error: 'forbidden', message: 'Admin or owner access required' });
+      }
+
+      const updates: string[] = [];
+      const params: any[] = [];
+
+      if ('primary_provider' in request.body) {
+        const next = request.body.primary_provider;
+        if (next !== null && !PROVIDER_IDS.includes(next as string)) {
+          return reply.status(400).send({ error: 'validation', message: `Unknown provider: ${next}` });
+        }
+        updates.push('primary_provider = ?');
+        params.push(next ?? null);
+      }
+
+      if (updates.length === 0) {
+        return reply.status(400).send({ error: 'validation', message: 'No updatable fields provided' });
+      }
+
+      params.push(orgId);
+      db.prepare(`UPDATE organizations SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+      // Primary provider is baked into agents.defaults at config-generation time,
+      // not read at runtime from a file — so changing it requires rewriting every
+      // member's openclaw.json. auth-profiles.json hot-reload won't pick it up.
+      syncAuthProfiles(orgId);
+
+      const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(orgId);
+      return { data: org };
+    },
+  );
 
   // Delete organization (admin/owner of that org only)
   app.delete<{ Params: { orgId: string } }>(

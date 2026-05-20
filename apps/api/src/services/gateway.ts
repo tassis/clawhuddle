@@ -266,10 +266,81 @@ function writeAuthProfiles(orgId: string, userId: string): { providerIds: string
   return { providerIds, modelOverrides, clawProxyKey };
 }
 
+function getOrgPrimaryProvider(orgId: string): string | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT primary_provider FROM organizations WHERE id = ?')
+    .get(orgId) as { primary_provider: string | null } | undefined;
+  return row?.primary_provider ?? null;
+}
+
 /**
- * Live-update auth-profiles.json for all gateways in an org with on-disk state.
- * Called after org-default API key add/delete; resolution may pick up the new
- * org key for any member who doesn't have a personal override for that provider.
+ * Rewrite both files for a single gateway in-place:
+ *  - auth-profiles.json (credentials; hot-reloaded by OpenClaw)
+ *  - openclaw.json (provider list + agents.defaults; OpenClaw reads at startup,
+ *    so primary provider / new provider lists only take effect on the next start)
+ *
+ * Returns false if the gateway directory doesn't exist (member hasn't been
+ * provisioned yet) — caller may treat this as a no-op.
+ */
+function regenerateGatewayConfig(orgId: string, userId: string): boolean {
+  const gatewayDir = getGatewayDir(orgId, userId);
+  if (!fs.existsSync(gatewayDir)) return false;
+
+  const { providerIds, modelOverrides, clawProxyKey } = writeAuthProfiles(orgId, userId);
+
+  const db = getDb();
+  const member = db
+    .prepare(
+      `SELECT id, gateway_token, gateway_subdomain, gateway_port FROM org_members
+       WHERE org_id = ? AND user_id = ?`,
+    )
+    .get(orgId, userId) as {
+    id: string;
+    gateway_token: string | null;
+    gateway_subdomain: string | null;
+    gateway_port: number | null;
+  } | undefined;
+
+  if (!member?.gateway_token || !member.gateway_subdomain) {
+    // No provisioned gateway yet — auth-profiles.json is enough; openclaw.json
+    // will be generated fresh when the gateway is first provisioned.
+    return false;
+  }
+
+  const channelTokens = getMemberChannelTokens(member.id);
+
+  const clawProxyBaseUrl = process.env.CLAW_PROXY_URL || 'http://claw-proxy:3456/v1';
+  const configOptions = {
+    port: GATEWAY_INTERNAL_PORT,
+    token: member.gateway_token,
+    activeProviderIds: providerIds,
+    modelOverrides,
+    channelTokens,
+    clawProxy: clawProxyKey ? { baseUrl: clawProxyBaseUrl, apiKey: clawProxyKey } : undefined,
+    primaryProviderId: getOrgPrimaryProvider(orgId) ?? undefined,
+    ...getControlUiOrigins(member.gateway_subdomain),
+  };
+
+  const configPath = path.join(gatewayDir, 'openclaw.json');
+  let config;
+  try {
+    const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    config = mergeOpenClawConfig(existing, configOptions);
+  } catch {
+    config = generateOpenClawConfig(configOptions);
+  }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  return true;
+}
+
+/**
+ * Sync every gateway in the org. Called after an org-level change (org-default
+ * key add/delete, primary_provider update) that may affect every member.
+ *
+ * Note: auth-profiles.json hot-reloads, but agents.defaults in openclaw.json
+ * is read at gateway startup. Primary-provider changes take effect for new
+ * gateway starts; running gateways keep their current primary until restart.
  */
 export function syncAuthProfiles(orgId: string): void {
   const db = getDb();
@@ -281,22 +352,15 @@ export function syncAuthProfiles(orgId: string): void {
     .all(orgId) as { user_id: string }[];
 
   for (const { user_id } of members) {
-    const gatewayDir = getGatewayDir(orgId, user_id);
-    if (fs.existsSync(gatewayDir)) {
-      writeAuthProfiles(orgId, user_id);
-    }
+    regenerateGatewayConfig(orgId, user_id);
   }
 }
 
 /**
- * Live-update auth-profiles.json for a single member's gateway.
- * Called after a personal API key change — only that user's gateway is affected.
+ * Sync a single member's gateway. Called after a personal key change.
  */
 export function syncAuthProfilesForUser(orgId: string, userId: string): void {
-  const gatewayDir = getGatewayDir(orgId, userId);
-  if (fs.existsSync(gatewayDir)) {
-    writeAuthProfiles(orgId, userId);
-  }
+  regenerateGatewayConfig(orgId, userId);
 }
 
 const IS_LOCAL_DEV = DOMAIN === "localhost";
@@ -401,6 +465,7 @@ export async function provisionGateway(orgId: string, memberId: string) {
     modelOverrides,
     channelTokens,
     clawProxy: clawProxyKey ? { baseUrl: clawProxyBaseUrl, apiKey: clawProxyKey } : undefined,
+    primaryProviderId: getOrgPrimaryProvider(orgId) ?? undefined,
     ...getControlUiOrigins(subdomain),
   });
   fs.writeFileSync(
@@ -586,6 +651,7 @@ export async function redeployGateway(orgId: string, memberId: string) {
     modelOverrides,
     channelTokens,
     clawProxy: clawProxyKey ? { baseUrl: clawProxyBaseUrl, apiKey: clawProxyKey } : undefined,
+    primaryProviderId: getOrgPrimaryProvider(orgId) ?? undefined,
     ...getControlUiOrigins(member.gateway_subdomain),
   };
 

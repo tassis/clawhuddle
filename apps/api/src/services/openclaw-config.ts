@@ -95,6 +95,12 @@ export function generateOpenClawConfig(options: {
   useHostHeaderFallback?: boolean;
   /** Claw-proxy configuration (custom provider for Claude Max subscriptions) */
   clawProxy?: { baseUrl: string; apiKey: string };
+  /**
+   * Provider id pinned by the org as the primary model. If set AND the user has a key
+   * for it, that provider becomes agents.defaults.model.primary; otherwise falls back
+   * to the natural (alphabetical) order of activeProviderIds.
+   */
+  primaryProviderId?: string;
 }): OpenClawConfig {
   const { port, token } = options;
   const channels = options.enabledChannels ?? CHANNEL_PLUGINS;
@@ -179,10 +185,20 @@ export function generateOpenClawConfig(options: {
   }
 
   // Set default model based on active providers so OpenClaw doesn't
-  // fall back to Anthropic when only another provider's key exists
-  const activeProviders = (options.activeProviderIds ?? [])
+  // fall back to Anthropic when only another provider's key exists.
+  // If the org pinned a primary provider AND the user has a key for it,
+  // hoist that provider to the front so its model becomes primary.
+  let activeProviders = (options.activeProviderIds ?? [])
     .map((id) => PROVIDERS.find((p) => p.id === id))
     .filter(Boolean) as typeof PROVIDERS;
+
+  if (options.primaryProviderId) {
+    const pinnedIdx = activeProviders.findIndex((p) => p.id === options.primaryProviderId);
+    if (pinnedIdx > 0) {
+      const pinned = activeProviders[pinnedIdx];
+      activeProviders = [pinned, ...activeProviders.slice(0, pinnedIdx), ...activeProviders.slice(pinnedIdx + 1)];
+    }
+  }
 
   if (activeProviders.length > 0) {
     const overrides = options.modelOverrides ?? {};

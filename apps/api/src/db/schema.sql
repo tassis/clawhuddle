@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     tier TEXT NOT NULL DEFAULT 'free',
+    primary_provider TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
