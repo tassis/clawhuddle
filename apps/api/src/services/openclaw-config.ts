@@ -294,15 +294,35 @@ export function mergeOpenClawConfig(
     delete (merged.agents as Record<string, unknown>).defaults;
   }
 
-  // Platform-managed: channels
+  // Channels: initialize missing channels from generated, but preserve any
+  // existing user customization (multi-account structures, group allowlists,
+  // custom tokens, etc.). Once a channel exists in user config, the user owns it.
+  // Never delete user's channels — they may have added accounts manually.
   if (generated.channels) {
-    merged.channels = generated.channels;
-  } else {
-    delete merged.channels;
+    if (typeof merged.channels !== 'object' || merged.channels === null) {
+      merged.channels = {};
+    }
+    const mergedChannels = merged.channels as Record<string, unknown>;
+    for (const [channelId, channelCfg] of Object.entries(generated.channels)) {
+      if (!(channelId in mergedChannels)) {
+        mergedChannels[channelId] = channelCfg;
+      }
+    }
   }
 
-  // Platform-managed: plugins.entries
-  merged.plugins = generated.plugins;
+  // Plugins: merge entries so user-added plugins (e.g. openai, anthropic)
+  // are preserved. For platform-managed entries, shallow-merge so any extra
+  // fields the user added on the same entry are kept.
+  if (typeof merged.plugins !== 'object' || merged.plugins === null) {
+    merged.plugins = { entries: {} };
+  }
+  const mergedPlugins = merged.plugins as { entries?: Record<string, { enabled: boolean }> };
+  if (typeof mergedPlugins.entries !== 'object' || mergedPlugins.entries === null) {
+    mergedPlugins.entries = {};
+  }
+  for (const [pluginId, pluginCfg] of Object.entries(generated.plugins.entries)) {
+    mergedPlugins.entries[pluginId] = { ...(mergedPlugins.entries[pluginId] ?? {}), ...pluginCfg };
+  }
 
   return merged as unknown as OpenClawConfig;
 }
