@@ -165,6 +165,7 @@ export const PROVIDERS: ProviderConfig[] = [
       { id: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
       { id: 'anthropic/claude-opus-4-5', label: 'Claude Opus 4.5' },
       { id: 'anthropic/claude-opus-4-6', label: 'Claude Opus 4.6' },
+      { id: 'anthropic/claude-opus-4-7', label: 'Claude Opus 4.7' },
       { id: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5' },
     ],
     supportsSetupToken: true, setupTokenInstructions: 'Run `claude setup-token` in your terminal and paste the result here.',
