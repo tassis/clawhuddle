@@ -98,19 +98,37 @@ Edit `.env` with your values:
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=change-me-to-random-secret
 
+# Internal auth providers (at least one required): GitLab and/or Authentik
+GITLAB_CLIENT_ID=
+GITLAB_CLIENT_SECRET=
+GITLAB_BASE_URL=https://gitlab.com
+
+AUTHENTIK_ISSUER=https://your-authentik.example.com/application/o/clawhuddle
+AUTHENTIK_CLIENT_ID=
+AUTHENTIK_CLIENT_SECRET=
+
+# Optional local-development aid only
+NEXTAUTH_ENABLE_DEV_CREDENTIALS=false
+
+# Optional: restrict sign-in to a specific email domain
+ALLOWED_DOMAIN=
+
 # LLM API key (at least one provider required)
 ANTHROPIC_API_KEY=sk-ant-...
 
 # Super admin account
 SUPER_ADMIN_EMAIL=you@example.com
 
-# Optional: restrict sign-in to a specific email domain
-ALLOWED_DOMAIN=
-
 # Optional: invitation emails via Resend
 RESEND_API_KEY=re_xxxx
 EMAIL_FROM=ClawHuddle <noreply@yourdomain.com>
 ```
+
+Sign-in behavior details:
+- Configure **either `GITLAB_*` or `AUTHENTIK_*` (or both).** At least one internal provider must be set, or auth routes will fail validation during startup/build.
+- For Authentik, `AUTHENTIK_ISSUER` **must be the full issuer URL**, not a hostname.
+- `NEXTAUTH_ENABLE_DEV_CREDENTIALS` is only for local development and is not intended for production.
+- `GITLAB_BASE_URL` is optional; leave empty to use GitLab Cloud defaults (`https://gitlab.com`), or set to your self-hosted GitLab base URL.
 
 4. **Build the gateway image**
 
@@ -147,9 +165,14 @@ This starts Traefik, the web frontend, the API server, and builds the gateway ba
 | --------------------------- | ------------------------------------------------------------------- | ----------------------- |
 | `NEXTAUTH_URL`              | Frontend URL                                                        | `http://localhost:3000` |
 | `NEXTAUTH_SECRET`           | Session encryption secret                                           | **(required)**          |
-| `GOOGLE_CLIENT_ID`          | Google OAuth client ID                                              | —                       |
-| `GOOGLE_CLIENT_SECRET`      | Google OAuth client secret                                          | —                       |
+| `GITLAB_CLIENT_ID`          | GitLab OAuth client ID                                              | —                       |
+| `GITLAB_CLIENT_SECRET`      | GitLab OAuth client secret                                          | —                       |
+| `GITLAB_BASE_URL`           | GitLab base URL (optional, self-hosted instance base URL)             | `https://gitlab.com`     |
+| `AUTHENTIK_ISSUER`          | Authentik issuer URL (full OIDC issuer, e.g. `https://auth.example.com/application/o/clawhuddle`) | — |
+| `AUTHENTIK_CLIENT_ID`       | Authentik OAuth client ID                                            | —                       |
+| `AUTHENTIK_CLIENT_SECRET`   | Authentik OAuth client secret                                        | —                       |
 | `ALLOWED_DOMAIN`            | Restrict sign-in to email domain(s), comma-separated (e.g. `company.com,partner.com`) | — |
+| `NEXTAUTH_ENABLE_DEV_CREDENTIALS` | Enable local credential login flow in dev environments              | `false`                  |
 | `ANTHROPIC_API_KEY`         | Default Anthropic API key                                           | —                       |
 | `SUPER_ADMIN_EMAIL`         | Super admin account email                                           | —                       |
 | `MAX_MEMBERS_PER_ORG`       | Member limit per organization                                       | `50`                    |
