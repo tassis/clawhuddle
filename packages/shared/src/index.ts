@@ -192,6 +192,17 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   { id: 'openai-codex', label: 'OpenAI Codex', envVar: '', placeholder: '', defaultModel: 'openai-codex/gpt-5.5', supportsOAuth: true, oauthInstructions: 'Run `codex` and sign in with your ChatGPT account, then run `cat ~/.codex/auth.json` and paste the JSON here.' },
   { id: 'openrouter', label: 'OpenRouter', envVar: 'OPENROUTER_API_KEY', placeholder: 'sk-or-...', defaultModel: 'openrouter/anthropic/claude-sonnet-4.5' },
+  {
+    id: 'llmgw',
+    label: 'LLMGW',
+    envVar: '',
+    placeholder: 'Bearer token',
+    defaultModel: 'llmgw/qwen3.6-27b',
+    personalOverridable: false,
+    models: [
+      { id: 'llmgw/qwen3.6-27b', label: 'Qwen 3.6 27B' },
+    ],
+  },
   { id: 'google', label: 'Google Gemini', envVar: 'GEMINI_API_KEY', placeholder: 'AIza...', defaultModel: 'google/gemini-2.5-pro' },
 ];
 

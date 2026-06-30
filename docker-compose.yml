@@ -72,6 +72,7 @@ services:
       - DOMAIN=${DOMAIN:-localhost}
       - GATEWAY_DOMAIN=${GATEWAY_DOMAIN:-}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - LLMGW_BASE_URL=${LLMGW_BASE_URL:-}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=PathPrefix(`/api/`) && !PathPrefix(`/api/auth`)"

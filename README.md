@@ -16,6 +16,7 @@ Each team member gets an isolated [OpenClaw](https://openclaw.ai) instance with 
 - **Zero-touch deploy** — Add someone to your org. Their AI assistant is running within seconds.
 - **Private & secure** — Each instance is fully isolated. Conversations, files, and settings never leak between users.
 - **Multi-provider** — Bring your own API keys for Anthropic, OpenAI, Google Gemini, or OpenRouter.
+- **Internal LLMGW provider** — Configure the fixed internal gateway token from the existing API Keys UI.
 
 ## Architecture
 
@@ -179,6 +180,7 @@ This starts Traefik, the web frontend, the API server, and builds the gateway ba
 | `RESEND_API_KEY`            | Resend API key for invitation emails                                | —                       |
 | `EMAIL_FROM`                | Sender address for emails                                           | —                       |
 | `APP_URL`                   | Public app URL, used in invitation email links                      | `http://localhost:3000` |
+| `LLMGW_BASE_URL`            | Internal LLMGW base URL (override default fixed endpoint)            | `https://example.com/v1` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | Support email shown in the settings page                            | —                       |
 | `DATABASE_PATH`             | SQLite file path                                                    | `./data/db.sqlite`      |
 | `CORS_ORIGIN`               | Allowed origin for API requests                                     | `http://localhost:3000` |
@@ -186,6 +188,21 @@ This starts Traefik, the web frontend, the API server, and builds the gateway ba
 | `DOMAIN`                    | Production domain (used by Traefik)                                 | `localhost`             |
 | `GATEWAY_DOMAIN`            | Domain for per-user gateway subdomains (e.g. `gw.company.com` → `alice.gw.company.com`) | — |
 | `HOST_DATA_DIR`             | Absolute path on host for Docker bind mounts. Defaults to `$PWD/data`. Override if your data dir is elsewhere. | — |
+
+### Internal LLMGW provider (`llmgw`)
+
+- `llmgw` is configured through the existing **Organization → API Keys** UI.
+- It uses a fixed default endpoint: `https://example.com/v1`.
+- You may override it with environment variable `LLMGW_BASE_URL` (set on the API server).
+- Enter a bearer token for `llmgw` and use model `qwen3.6-27b`.
+- The provider is organization-managed (`personalOverridable: false`), so personal users cannot add their own `llmgw` override from `Settings → My API Keys`.
+- OpenClaw config is generated with a custom provider entry (`api: openai-completions`) and `models.providers.llmgw.models` including `llmgw/qwen3.6-27b`.
+
+After saving the key:
+
+1. Open the target member in Admin → Members and provision the gateway (or **Redeploy** an existing gateway).
+2. Redeploy triggers regeneration of `openclaw.json` and applies the new provider/model selection.
+3. Confirm in the member gateway config that `agents.defaults.model.primary` is set as expected (for a single active provider it will be `llmgw/qwen3.6-27b`).
 
 ## Project Scripts
 

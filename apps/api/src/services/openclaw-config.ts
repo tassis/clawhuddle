@@ -19,6 +19,10 @@ const CHANNEL_PLUGINS = [
   'zalouser',
 ];
 
+const LLMGW_DEFAULT_BASE_URL = 'https://example.com/v1';
+const LLMGW_MODEL_ID = 'llmgw/qwen3.6-27b';
+const LLMGW_MODEL_NAME = 'Qwen 3.6 27B';
+
 export interface ChannelTokens {
   telegram?: string;
   discord?: string;
@@ -95,6 +99,8 @@ export function generateOpenClawConfig(options: {
   useHostHeaderFallback?: boolean;
   /** Claw-proxy configuration (custom provider for Claude Max subscriptions) */
   clawProxy?: { baseUrl: string; apiKey: string };
+  /** Internal LLM gateway (llmgw) configuration */
+  llmgw?: { baseUrl?: string; apiKey: string };
   /**
    * Provider id pinned by the org as the primary model. If set AND the user has a key
    * for it, that provider becomes agents.defaults.model.primary; otherwise falls back
@@ -164,24 +170,59 @@ export function generateOpenClawConfig(options: {
     },
   };
 
+  const modelProviders: Record<string, {
+    baseUrl: string;
+    apiKey: string;
+    api: string;
+    models: {
+      id: string;
+      name: string;
+      reasoning?: boolean;
+      input?: string[];
+      cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+      contextWindow: number;
+      maxTokens: number;
+    }[];
+  }> = {};
+
   // Register claw-proxy as a custom OpenClaw provider
   if (options.clawProxy) {
-    config.models = {
-      providers: {
-        claw: {
-          baseUrl: options.clawProxy.baseUrl,
-          apiKey: options.clawProxy.apiKey,
-          api: 'openai-completions',
-          models: [
-            { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
-            { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
-            { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
-            { id: 'claude-opus-4', name: 'Claude Opus 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 32000 },
-            { id: 'claude-haiku-4', name: 'Claude Haiku 4', input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
-          ],
-        },
-      },
+    modelProviders.claw = {
+      baseUrl: options.clawProxy.baseUrl,
+      apiKey: options.clawProxy.apiKey,
+      api: 'openai-completions',
+      models: [
+        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
+        { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 32000 },
+        { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
+        { id: 'claude-opus-4', name: 'Claude Opus 4', reasoning: true, input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 32000 },
+        { id: 'claude-haiku-4', name: 'Claude Haiku 4', input: ['text', 'image'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 16000 },
+      ],
     };
+  }
+
+  // Register fixed internal LLM gateway as OpenAI-compatible provider.
+  if (options.llmgw && options.activeProviderIds?.includes('llmgw')) {
+    modelProviders.llmgw = {
+      baseUrl: options.llmgw.baseUrl ?? process.env.LLMGW_BASE_URL ?? LLMGW_DEFAULT_BASE_URL,
+      apiKey: options.llmgw.apiKey,
+      api: 'openai-completions',
+      models: [
+        {
+          id: LLMGW_MODEL_ID,
+          name: LLMGW_MODEL_NAME,
+          input: ['text'],
+          reasoning: false,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 8192,
+        },
+      ],
+    };
+  }
+
+  if (Object.keys(modelProviders).length > 0) {
+    config.models = { providers: modelProviders };
   }
 
   // Set default model based on active providers so OpenClaw doesn't
@@ -270,7 +311,7 @@ export function mergeOpenClawConfig(
   gw.controlUi = generated.gateway.controlUi;
   gw.trustedProxies = generated.gateway.trustedProxies;
 
-  // Platform-managed: models.providers.claw (claw-proxy custom provider)
+  // Platform-managed: models.providers (custom providers like claw-proxy and llmgw)
   if (generated.models) {
     merged.models = generated.models;
   } else {
